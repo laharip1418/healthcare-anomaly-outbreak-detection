@@ -1,0 +1,14 @@
+# Install into the project virtual environment only:
+#   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+# Requires Java 17 (Eclipse Temurin JDK 17).
+# PySpark is pinned because the Windows setup (setup_windows.ps1) was verified with 4.2.0.
+
+pyspark==4.2.0
+pyarrow>=15,<26
+pandas>=2.2,<3.0
+numpy>=1.26,<3.0
+scikit-learn>=1.5,<2.0
+prophet>=1.1.6,<2.0
+streamlit>=1.37,<2.0
+plotly>=6.0,<8.0
+pytest>=8.0,<10.0

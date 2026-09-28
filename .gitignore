@@ -1,0 +1,50 @@
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets (this project does not need any, but never commit them)
+.env
+.env.*
+.streamlit/secrets.toml
+
+# Generated data, SQLite databases and Spark checkpoints
+data/*
+!data/.gitkeep
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+checkpoints/
+
+# Downloaded JARs (setup_windows.ps1 downloads them again)
+jars/*.jar
+jars/*.download
+
+# Trained models
+models/*
+!models/.gitkeep
+
+# Spark local files
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Logs
+logs/
+*.log
+
+# Editors and operating system files
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
