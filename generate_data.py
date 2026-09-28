@@ -6,7 +6,8 @@ not describe real patients, real places or real outbreaks.
 Modes
 -----
 train   Write small CSV datasets for training and testing the models:
-            data/training/vitals_train.csv, data/training/vitals_test.csv
+            data/training/vitals_train.csv, data/training/vitals_test.csv,
+            data/training/geo_test.csv
 stream  Simulate a live feed. Every tick writes one JSON file of vital-sign
         events and one JSON file of geographic events:
             data/incoming/vitals/vitals_000001.json
@@ -374,6 +375,17 @@ class StreamSimulator:
         }
 
 
+def generate_geo_dataset(seed: int, num_ticks: int) -> tuple[pd.DataFrame, pd.DataFrame, list[dict]]:
+    """Create a geographic test dataset (events, labels, outbreak list) for evaluating DBSCAN."""
+    simulator = StreamSimulator(seed)
+    events, labels = [], []
+    for _ in range(num_ticks):
+        data = simulator.next_tick()
+        events.extend(data["geo_events"])
+        labels.extend(data["geo_labels"])
+    return pd.DataFrame(events), pd.DataFrame(labels), simulator.outbreaks
+
+
 # ---------------------------------------------------------------------------
 # Writing files
 # ---------------------------------------------------------------------------
@@ -464,7 +476,7 @@ def run_stream(
 
 
 def run_train(train_dir: Path = config.TRAINING_DIR, labels_dir: Path = config.LABELS_DIR) -> None:
-    """Write the training and test vitals datasets with separate label files."""
+    """Write the training and test datasets with separate label files."""
     train_dir.mkdir(parents=True, exist_ok=True)
     labels_dir.mkdir(parents=True, exist_ok=True)
     for name, seed, rows, prefix in (
@@ -475,6 +487,14 @@ def run_train(train_dir: Path = config.TRAINING_DIR, labels_dir: Path = config.L
         events.to_csv(train_dir / f"vitals_{name}.csv", index=False)
         labels.to_csv(labels_dir / f"vitals_{name}_labels.csv", index=False)
         print(f"  {name}: {len(events)} rows, {int(labels['is_anomaly'].sum())} labelled anomalies (seed {seed})")
+
+    geo_events, geo_labels, outbreaks = generate_geo_dataset(config.TEST_SEED, config.GEO_TEST_TICKS)
+    geo_events.to_csv(train_dir / "geo_test.csv", index=False)
+    geo_labels.to_csv(labels_dir / "geo_test_labels.csv", index=False)
+    with open(labels_dir / "geo_test_outbreaks.json", "w", encoding="utf-8") as file:
+        json.dump(outbreaks, file, indent=2)
+    print(f"  geo test: {len(geo_events)} events, {int(geo_labels['is_outbreak_event'].sum())} labelled "
+          f"outbreak events, {len(outbreaks)} outbreaks (seed {config.TEST_SEED})")
 
 
 def main() -> None:

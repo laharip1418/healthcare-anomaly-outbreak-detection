@@ -83,6 +83,40 @@ OUTBREAK_RADIUS_KM = 1.0          # outbreak events fall within this distance of
 # Training / test dataset sizes (train mode)
 TRAIN_ROWS = 5000
 TEST_ROWS = 2000
+GEO_TEST_TICKS = 288          # held-out geographic test events: 288 ticks = 1 simulated day
+
+# ---------------------------------------------------------------------------
+# Detection models
+# ---------------------------------------------------------------------------
+# Isolation Forest (unsupervised: trained on vital signs only, never on labels)
+VITAL_FEATURES = [
+    "heart_rate",
+    "systolic_bp",
+    "diastolic_bp",
+    "oxygen_saturation",
+    "body_temperature",
+    "respiratory_rate",
+]
+ISOLATION_FOREST_PATH = MODELS_DIR / "isolation_forest.joblib"
+MODEL_RANDOM_SEED = TRAIN_SEED
+ISOLATION_FOREST_TREES = 200
+# Expected share of anomalies. This is a design assumption taken from the
+# simulation setting above, not a value tuned on the held-out test labels.
+ISOLATION_FOREST_CONTAMINATION = ANOMALY_RATE
+
+# DBSCAN (geographic clusters of distress events)
+DBSCAN_EPS_KM = 0.5           # events closer than 0.5 km are neighbours
+DBSCAN_MIN_SAMPLES = 5        # a cluster needs at least 5 nearby events
+DBSCAN_WINDOW_MINUTES = 60    # cluster the events from the last 60 simulated minutes
+
+# Risk score (simple academic heuristic, NOT a probability or clinical score)
+RISK_ANOMALY_RATE_FOR_MAX = 0.10    # 10% abnormal vital readings in a region = full anomaly part
+RISK_CLUSTER_CASES_FOR_MAX = 20     # 20 clustered cases in a region = full cluster part
+RISK_MEDIUM_THRESHOLD = 30          # score 30-59 = Medium
+RISK_HIGH_THRESHOLD = 60            # score 60+ = High
+
+# Evaluation output (git-ignored because it is inside data/)
+RESULTS_DIR = DATA_DIR / "results"
 
 # ---------------------------------------------------------------------------
 # Spark (kept small so it does not use all CPU cores on a shared computer)
