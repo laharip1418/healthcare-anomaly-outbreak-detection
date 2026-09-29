@@ -119,6 +119,29 @@ RISK_HIGH_THRESHOLD = 60            # score 60+ = High
 RESULTS_DIR = DATA_DIR / "results"
 
 # ---------------------------------------------------------------------------
+# Streaming pipeline
+# ---------------------------------------------------------------------------
+# Readings outside these ranges are physically impossible and are rejected
+# during validation (they are data errors, not anomalies). Systolic blood
+# pressure must also be higher than diastolic.
+VITAL_VALID_RANGES = {
+    "heart_rate": (20, 250),
+    "systolic_bp": (50, 260),
+    "diastolic_bp": (20, 160),
+    "oxygen_saturation": (50, 100),
+    "body_temperature": (30, 44),
+    "respiratory_rate": (4, 60),
+}
+SEVERITY_RANGE = (1, 4)
+
+SPARK_MAX_FILES_PER_TRIGGER = 10    # each micro-batch reads at most 10 new files
+MAX_ROWS_PER_BATCH = 5000           # safety limit before converting a batch to pandas
+SPARK_TRIGGER_SECONDS = 2           # continuous mode: look for new files every 2 seconds
+VITALS_CHECKPOINT_DIR = CHECKPOINT_DIR / "vitals"
+GEO_CHECKPOINT_DIR = CHECKPOINT_DIR / "geo"
+# The regional risk uses the same recent window as DBSCAN (DBSCAN_WINDOW_MINUTES).
+
+# ---------------------------------------------------------------------------
 # Spark (kept small so it does not use all CPU cores on a shared computer)
 # ---------------------------------------------------------------------------
 SPARK_MASTER = "local[2]"
