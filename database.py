@@ -9,6 +9,7 @@ vitals_results  one row per validated vital-sign event, with its anomaly score
 geo_events      one row per validated geographic event, with its latest cluster
 clusters        one summary row per DBSCAN cluster found in a recent window
 region_risk     one row per region per window with the academic risk score
+forecasts       the latest Prophet case-count forecast (replaced on every run of forecast.py)
 
 Timestamps are stored as UTC text such as "2026-01-01T02:05:00.000+00:00", so
 they sort and compare correctly as plain strings.
@@ -17,6 +18,8 @@ they sort and compare correctly as plain strings.
     processed_at real time the pipeline stored the processed event
     window_end   simulated time at the end of the recent window used for DBSCAN
     calculated_at real time a cluster summary or risk score was calculated
+    forecast_time simulated start time of a forecast interval
+    generated_at real time forecast.py created the forecast
 """
 
 from __future__ import annotations
@@ -45,7 +48,9 @@ RISK_COLUMNS = [
     "region", "window_end", "calculated_at", "anomaly_rate", "clustered_cases",
     "anomaly_part", "cluster_part", "risk_score", "risk_level",
 ]
-TIME_COLUMNS = {"event_time", "created_at", "processed_at", "window_end", "calculated_at"}
+FORECAST_COLUMNS = ["forecast_time", "predicted_cases", "lower_cases", "upper_cases", "generated_at", "history_points"]
+TIME_COLUMNS = {"event_time", "created_at", "processed_at", "window_end", "calculated_at",
+                "forecast_time", "generated_at"}
 
 CREATE_TABLES_SQL = """
 CREATE TABLE IF NOT EXISTS vitals_results (
@@ -108,6 +113,15 @@ CREATE TABLE IF NOT EXISTS region_risk (
     risk_score      REAL,
     risk_level      TEXT,
     PRIMARY KEY (region, window_end)
+);
+
+CREATE TABLE IF NOT EXISTS forecasts (
+    forecast_time   TEXT PRIMARY KEY,
+    predicted_cases REAL NOT NULL,      -- never below 0 (see forecast.py)
+    lower_cases     REAL NOT NULL,
+    upper_cases     REAL NOT NULL,
+    generated_at    TEXT NOT NULL,
+    history_points  INTEGER NOT NULL    -- number of history intervals the model was trained on
 );
 """
 
@@ -213,6 +227,22 @@ def save_region_risk(risk: pd.DataFrame, db_path: Path = config.DATABASE_PATH) -
     return _write(db_path, sql, _rows(risk, RISK_COLUMNS))
 
 
+def replace_forecast(forecast: pd.DataFrame, db_path: Path = config.DATABASE_PATH) -> int:
+    """Replace the previous forecast with a new one in a single transaction.
+
+    If anything fails, the transaction is rolled back and the old forecast stays.
+    """
+    rows = _rows(forecast, FORECAST_COLUMNS)
+    connection = connect(db_path)
+    try:
+        with connection:
+            connection.execute("DELETE FROM forecasts")
+            connection.executemany("INSERT INTO forecasts " + _placeholders(FORECAST_COLUMNS), rows)
+        return len(rows)
+    finally:
+        connection.close()
+
+
 # ---------------------------------------------------------------------------
 # Reading
 # ---------------------------------------------------------------------------
@@ -256,7 +286,34 @@ def latest_geo_event_time(db_path: Path = config.DATABASE_PATH) -> str | None:
     return None if pd.isna(latest) else latest
 
 
+def read_forecast(db_path: Path = config.DATABASE_PATH) -> pd.DataFrame:
+    return _read("SELECT * FROM forecasts ORDER BY forecast_time", db_path=db_path)
+
+
+# ---------------------------------------------------------------------------
+# Read-only access (used by the dashboard and forecast.py's checks)
+# ---------------------------------------------------------------------------
+def connect_read_only(db_path: Path = config.DATABASE_PATH) -> sqlite3.Connection:
+    """Open the database in read-only mode. It never creates or changes the file."""
+    return sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=ro", uri=True, timeout=10)
+
+
+def read_only_query(sql: str, params: tuple = (), db_path: Path = config.DATABASE_PATH) -> pd.DataFrame:
+    """Run one SELECT on a short read-only connection and close it again."""
+    connection = connect_read_only(db_path)
+    try:
+        return pd.read_sql_query(sql, connection, params=params)
+    finally:
+        connection.close()
+
+
+def table_names(db_path: Path = config.DATABASE_PATH) -> set[str]:
+    """Names of the tables in an existing database (read-only)."""
+    tables = read_only_query("SELECT name FROM sqlite_master WHERE type = 'table'", db_path=db_path)
+    return set(tables["name"])
+
+
 def count_rows(table: str, db_path: Path = config.DATABASE_PATH) -> int:
-    if table not in {"vitals_results", "geo_events", "clusters", "region_risk"}:
+    if table not in {"vitals_results", "geo_events", "clusters", "region_risk", "forecasts"}:
         raise ValueError(f"Unknown table: {table}")
     return int(_read(f"SELECT COUNT(*) AS n FROM {table}", db_path=db_path)["n"].iloc[0])

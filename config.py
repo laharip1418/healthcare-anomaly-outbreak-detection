@@ -160,6 +160,18 @@ SPARK_CHECKPOINT_MANAGER_CLASS = (
 )
 
 # ---------------------------------------------------------------------------
-# Streamlit
+# Forecast (Prophet runs only when "python forecast.py" is executed by hand)
 # ---------------------------------------------------------------------------
+FORECAST_INTERVAL_MINUTES = 15   # case counts are summed per 15 simulated minutes (3 ticks)
+FORECAST_HORIZON_STEPS = 8       # forecast 8 intervals ahead = 2 simulated hours
+FORECAST_MIN_POINTS = 12         # need at least 12 complete intervals = 3 simulated hours of history
+FORECAST_INTERVAL_WIDTH = 0.80   # the lower/upper estimates cover an 80% uncertainty range
+
+# Phase 2 evaluation results written by train_models.py (read-only for the dashboard)
+PHASE2_RESULTS_PATH = RESULTS_DIR / "phase2_evaluation.json"
+
+# ---------------------------------------------------------------------------
+# Streamlit (the same values are set in .streamlit/config.toml, which Streamlit reads)
+# ---------------------------------------------------------------------------
+STREAMLIT_HOST = "127.0.0.1"     # only this computer can open the dashboard
 STREAMLIT_PORT = 8501

@@ -18,6 +18,7 @@ Usage:      python train_models.py
 
 from __future__ import annotations
 
+import argparse
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -135,6 +136,9 @@ def evaluate_dbscan() -> dict:
 
 
 def main() -> None:
+    argparse.ArgumentParser(
+        description="Train Isolation Forest and evaluate both detectors on held-out SYNTHETIC data."
+    ).parse_args()
     for path in (VITALS_TRAIN, VITALS_TEST, VITALS_TEST_LABELS, GEO_TEST, GEO_TEST_LABELS, GEO_TEST_OUTBREAKS):
         if not path.exists():
             raise SystemExit(f"Missing {path}.\nRun first:  python generate_data.py --mode train")

@@ -1,0 +1,10 @@
+# Streamlit settings for this project (read automatically by "python -m streamlit run dashboard.py").
+
+[server]
+address = "127.0.0.1"   # only this computer can open the dashboard (not the local network)
+port = 8501
+headless = true         # do not ask for an e-mail address or open a browser automatically
+
+[browser]
+serverAddress = "localhost"   # the address Streamlit prints: http://localhost:8501
+gatherUsageStats = false      # do not send usage statistics to Streamlit

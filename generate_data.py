@@ -516,8 +516,10 @@ def main() -> None:
     else:
         if args.ticks is not None:
             num_ticks = args.ticks
+        elif args.seconds_per_tick <= 0:
+            parser.error("--seconds-per-tick 0 needs --ticks, for example: --ticks 120 --seconds-per-tick 0")
         else:
-            num_ticks = max(1, int(args.minutes * 60 / max(args.seconds_per_tick, 0.001)))
+            num_ticks = max(1, int(args.minutes * 60 / args.seconds_per_tick))
         print(f"Streaming {num_ticks} ticks, {args.seconds_per_tick}s apart (Ctrl+C to stop).")
         run_stream(num_ticks, args.seconds_per_tick, fresh=args.fresh)
     print("Done.")
