@@ -169,7 +169,10 @@ def main() -> None:
           f"({summary['history_start']:{fmt}} to {summary['history_end']:{fmt}} simulated UTC)")
     print(f"  forecast points created: {summary['forecast_points']} "
           f"({summary['forecast_start']:{fmt}} to {summary['forecast_end']:{fmt}} simulated UTC)")
-    print(f"  saved to:              {summary['database']} (table: forecasts)")
+    database_name = summary["database"].resolve()
+    if database_name.is_relative_to(config.PROJECT_ROOT):      # show project paths without the personal folder
+        database_name = database_name.relative_to(config.PROJECT_ROOT).as_posix()
+    print(f"  saved to:              {database_name} (table: forecasts)")
     print("Done.")
 
 

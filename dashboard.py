@@ -287,8 +287,9 @@ def show_about_metrics() -> None:
             "`--mode once` it includes the time the files waited before Spark started.\n"
             "- **Throughput** – stored events divided by the time between the first and last stored event; "
             "it is not a maximum capacity.\n"
-            "- **Evaluation results** – precision, recall and F1 from `train_models.py` on held-out synthetic "
-            "test data. They depend on how the data was generated and do not show clinical performance."
+            "- **Evaluation results** – precision, recall, F1 and false-positive rate from `train_models.py` on "
+            "held-out synthetic test data. They depend on how the data was generated and do not show clinical "
+            "performance."
         )
 
 
@@ -447,6 +448,8 @@ def render() -> None:
                 "Detector": detector, "Test items": int(result[items]),
                 "Precision": percent(result["precision"]), "Recall": percent(result["recall"]),
                 "F1": percent(result["f1"]),
+                # older results files (before Phase 5) do not have this value
+                "False-positive rate": percent(result["false_positive_rate"]) if "false_positive_rate" in result else "—",
                 "TP": int(result["true_positives"]), "FP": int(result["false_positives"]),
                 "FN": int(result["false_negatives"]), "TN": int(result["true_negatives"]),
             })

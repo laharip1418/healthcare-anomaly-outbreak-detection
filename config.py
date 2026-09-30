@@ -68,6 +68,9 @@ DEFAULT_STREAM_MINUTES = 2
 
 # Patient vitals
 VITALS_PER_TICK = 10          # vital-sign readings written per tick
+# Systolic pressure must stay above diastolic in every valid reading (mmHg).
+MIN_BASELINE_PULSE_PRESSURE = 25   # a patient's usual systolic is at least 25 above their usual diastolic
+MIN_PULSE_PRESSURE = 10            # every valid reading keeps systolic at least 10 above diastolic
 ANOMALY_RATE = 0.03           # share of readings with abnormal vitals
 CORRUPT_RATE = 0.01           # share of stream readings with invalid values (tests validation)
 

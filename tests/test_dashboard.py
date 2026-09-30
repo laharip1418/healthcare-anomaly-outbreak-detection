@@ -123,6 +123,7 @@ def test_dashboard_renders_all_sections_from_stored_results(monkeypatch, tmp_pat
     results_path.write_text(json.dumps({
         "created_at": "2026-09-28T20:14:02+00:00", "seeds": {"train": 42, "test": 43},
         "isolation_forest": {"test_rows": 1200, "precision": 0.7042, "recall": 0.8475, "f1": 0.7692,
+                             "false_positive_rate": 0.0184,
                              "true_positives": 50, "false_positives": 21, "false_negatives": 9, "true_negatives": 1120},
         "dbscan": {"test_events": 10, "outbreaks": 1, "outbreaks_detected": 1, "precision": 0.5, "recall": 0.5,
                    "f1": 0.5, "true_positives": 1, "false_positives": 1, "false_negatives": 1, "true_negatives": 7},
@@ -162,6 +163,9 @@ def test_dashboard_renders_all_sections_from_stored_results(monkeypatch, tmp_pat
     evaluation = app.dataframe[2].value.set_index("Detector")
     forest = evaluation.loc["Isolation Forest (patient vital signs)"]
     assert (forest["Precision"], forest["Recall"], forest["F1"]) == ("70.4%", "84.8%", "76.9%")
+    assert forest["False-positive rate"] == "1.8%"
+    # a results file written before Phase 5 has no false-positive rate: shown as a dash
+    assert evaluation.loc["DBSCAN (outbreak events)", "False-positive rate"] == "—"
     assert (forest["TP"], forest["FP"], forest["FN"], forest["TN"]) == (50, 21, 9, 1120)
     assert any("No active clusters" in info.value for info in app.info)
     assert app.expander[0].label == "About the metrics"
@@ -169,3 +173,24 @@ def test_dashboard_renders_all_sections_from_stored_results(monkeypatch, tmp_pat
     # the map legend separates historical cluster membership from the active count
     map_traces = {trace.get("name") for trace in json.loads(app.get("plotly_chart")[0].proto.spec)["data"]}
     assert {"Clustered when processed", "Not clustered"} <= map_traces
+
+
+def test_refresh_button_loads_new_results(monkeypatch, tmp_path):
+    db_path = tmp_path / "test.db"
+    fill_database(db_path)
+    monkeypatch.setattr(config, "DATABASE_PATH", db_path)
+    monkeypatch.setattr(config, "PHASE2_RESULTS_PATH", tmp_path / "missing.json")
+    app = AppTest.from_file(DASHBOARD, default_timeout=60).run()
+    assert {m.label: m.value for m in app.metric}["Processed patient readings"] == "48"
+
+    # new results arrive while the page is open (as when the pipeline runs again)
+    later = pd.Timestamp("2026-01-01 04:00", tz="UTC")
+    database.insert_vital_results(pd.DataFrame([{
+        "event_id": "V-new", "patient_id": "P-1", "region": "R1", "event_time": later, "created_at": later,
+        "processed_at": later + timedelta(seconds=2), "heart_rate": 75, "systolic_bp": 120, "diastolic_bp": 80,
+        "oxygen_saturation": 97.0, "body_temperature": 36.8, "respiratory_rate": 16, "latitude": 12.97,
+        "longitude": 77.59, "anomaly_score": -0.1, "predicted_anomaly": False, "latency_seconds": 2.0,
+    }]), db_path)
+    app.sidebar.button[0].click().run()
+    assert not app.exception
+    assert {m.label: m.value for m in app.metric}["Processed patient readings"] == "49"

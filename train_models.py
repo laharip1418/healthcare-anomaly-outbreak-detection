@@ -43,6 +43,8 @@ def classification_metrics(actual: pd.Series, predicted: pd.Series) -> dict:
         "precision": round(float(precision_score(actual, predicted, zero_division=0)), 4),
         "recall": round(float(recall_score(actual, predicted, zero_division=0)), 4),
         "f1": round(float(f1_score(actual, predicted, zero_division=0)), 4),
+        # share of the truly normal items that were wrongly flagged
+        "false_positive_rate": round(float(fp / (fp + tn)) if fp + tn else 0.0, 4),
         "true_positives": int(tp),
         "false_positives": int(fp),
         "false_negatives": int(fn),
@@ -54,6 +56,7 @@ def print_metrics(metrics: dict) -> None:
     print(f"  precision: {metrics['precision']:.3f}")
     print(f"  recall:    {metrics['recall']:.3f}")
     print(f"  F1 score:  {metrics['f1']:.3f}")
+    print(f"  false-positive rate: {metrics['false_positive_rate']:.3f}")
     print("  confusion matrix (rows = actual, columns = predicted):")
     print("                    predicted normal   predicted anomaly/cluster")
     print(f"    actual normal   {metrics['true_negatives']:>16}   {metrics['false_positives']:>25}")
@@ -65,7 +68,7 @@ def evaluate_isolation_forest() -> dict:
     train_events = pd.read_csv(VITALS_TRAIN)
     model = detection.train_isolation_forest(train_events)          # no labels are read here
     detection.save_model(model)
-    print(f"Trained on {len(train_events)} synthetic readings; saved to {config.ISOLATION_FOREST_PATH}")
+    print(f"Trained on {len(train_events)} synthetic readings; saved to {config.ISOLATION_FOREST_PATH.relative_to(config.PROJECT_ROOT).as_posix()}")
 
     test_events = pd.read_csv(VITALS_TEST)
     predictions = detection.score_vitals(model, test_events)
@@ -129,6 +132,7 @@ def evaluate_dbscan() -> dict:
     return {
         "test_events": len(results),
         "outbreak_events": int(results["is_outbreak_event"].sum()),
+        "outbreak_event_prevalence": round(float(results["is_outbreak_event"].mean()), 4),
         "outbreaks": len(outbreaks),
         "outbreaks_detected": int(detected),
         **metrics,
@@ -156,7 +160,7 @@ def main() -> None:
     output = config.RESULTS_DIR / "phase2_evaluation.json"
     with open(output, "w", encoding="utf-8") as file:
         json.dump(report, file, indent=2)
-    print(f"\nSaved synthetic-data evaluation to {output}")
+    print(f"\nSaved synthetic-data evaluation to {output.relative_to(config.PROJECT_ROOT).as_posix()}")
 
 
 if __name__ == "__main__":

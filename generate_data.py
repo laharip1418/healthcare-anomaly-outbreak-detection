@@ -25,6 +25,7 @@ Examples
 --------
     python generate_data.py --mode train
     python generate_data.py --mode stream --minutes 2 --fresh
+    python generate_data.py --mode stream --fresh --seed 101     (different demo data)
 """
 
 from __future__ import annotations
@@ -109,14 +110,18 @@ def create_patients(rng: np.random.Generator, num_patients: int) -> list[dict]:
         home = config.REGIONS[int(rng.integers(len(config.REGIONS)))]
         north_km, east_km = rng.normal(0, config.BACKGROUND_SPREAD_KM, size=2)
         latitude, longitude = offset_position(home["latitude"], home["longitude"], north_km, east_km)
+        base_heart_rate = rng.normal(75, 8)
+        base_systolic_bp = rng.normal(118, 10)
+        # Keep a realistic gap between the usual systolic and diastolic pressure.
+        base_diastolic_bp = min(rng.normal(76, 7), base_systolic_bp - config.MIN_BASELINE_PULSE_PRESSURE)
         patients.append({
             "patient_id": f"P-{number:04d}",
             "region_id": nearest_region(latitude, longitude)["region_id"],
             "latitude": latitude,
             "longitude": longitude,
-            "base_heart_rate": rng.normal(75, 8),
-            "base_systolic_bp": rng.normal(118, 10),
-            "base_diastolic_bp": rng.normal(76, 7),
+            "base_heart_rate": base_heart_rate,
+            "base_systolic_bp": base_systolic_bp,
+            "base_diastolic_bp": base_diastolic_bp,
             "base_oxygen_saturation": rng.normal(97.5, 0.8),
             "base_body_temperature": rng.normal(36.8, 0.2),
             "base_respiratory_rate": rng.normal(16, 1.5),
@@ -137,11 +142,17 @@ def normal_vitals(rng: np.random.Generator, patient: dict) -> dict:
 
 
 def round_vitals(vitals: dict) -> dict:
-    """Round readings the way a monitor would report them."""
+    """Round readings the way a monitor would report them.
+
+    Random variation could occasionally push diastolic up to systolic, which is
+    not a valid reading, so diastolic is capped MIN_PULSE_PRESSURE below systolic.
+    Deliberately invalid readings are created afterwards by corrupt_vitals().
+    """
+    systolic_bp = int(round(vitals["systolic_bp"]))
     return {
         "heart_rate": int(round(vitals["heart_rate"])),
-        "systolic_bp": int(round(vitals["systolic_bp"])),
-        "diastolic_bp": int(round(vitals["diastolic_bp"])),
+        "systolic_bp": systolic_bp,
+        "diastolic_bp": min(int(round(vitals["diastolic_bp"])), systolic_bp - config.MIN_PULSE_PRESSURE),
         "oxygen_saturation": round(float(vitals["oxygen_saturation"]), 1),
         "body_temperature": round(float(vitals["body_temperature"]), 1),
         "respiratory_rate": int(round(vitals["respiratory_rate"])),
@@ -508,10 +519,16 @@ def main() -> None:
                         help="stream mode: real seconds to wait between ticks")
     parser.add_argument("--fresh", action="store_true",
                         help="stream mode: delete event and label files from an earlier run first")
+    parser.add_argument("--seed", type=int, default=None,
+                        help=f"stream mode: random seed for the simulated stream (default {config.STREAM_SEED}); "
+                             "the same seed always gives the same events")
     args = parser.parse_args()
 
     print("Generating SYNTHETIC data for academic demonstration only.")
     if args.mode == "train":
+        if args.seed is not None:
+            parser.error(f"--seed applies to stream mode only; train mode always uses the documented seeds "
+                         f"{config.TRAIN_SEED} (training) and {config.TEST_SEED} (held-out test)")
         run_train()
     else:
         if args.ticks is not None:
@@ -520,8 +537,10 @@ def main() -> None:
             parser.error("--seconds-per-tick 0 needs --ticks, for example: --ticks 120 --seconds-per-tick 0")
         else:
             num_ticks = max(1, int(args.minutes * 60 / args.seconds_per_tick))
+        seed = config.STREAM_SEED if args.seed is None else args.seed
+        print(f"Stream seed: {seed}")
         print(f"Streaming {num_ticks} ticks, {args.seconds_per_tick}s apart (Ctrl+C to stop).")
-        run_stream(num_ticks, args.seconds_per_tick, fresh=args.fresh)
+        run_stream(num_ticks, args.seconds_per_tick, seed=seed, fresh=args.fresh)
     print("Done.")
 
 
