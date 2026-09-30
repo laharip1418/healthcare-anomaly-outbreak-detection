@@ -170,8 +170,8 @@ FORECAST_HORIZON_STEPS = 8       # forecast 8 intervals ahead = 2 simulated hour
 FORECAST_MIN_POINTS = 12         # need at least 12 complete intervals = 3 simulated hours of history
 FORECAST_INTERVAL_WIDTH = 0.80   # the lower/upper estimates cover an 80% uncertainty range
 
-# Phase 2 evaluation results written by train_models.py (read-only for the dashboard)
-PHASE2_RESULTS_PATH = RESULTS_DIR / "phase2_evaluation.json"
+# Evaluation results written by train_models.py (read-only for the dashboard)
+EVALUATION_RESULTS_PATH = RESULTS_DIR / "evaluation.json"
 
 # ---------------------------------------------------------------------------
 # Streamlit (the same values are set in .streamlit/config.toml, which Streamlit reads)

@@ -24,6 +24,8 @@ data/*
 *.db-shm
 *.sqlite
 checkpoints/
+# ...except the small fixed snapshot of synthetic results used by the hosted preview
+!deployment/demo_healthcare.db
 
 # Downloaded JARs (setup_windows.ps1 downloads them again)
 jars/*.jar

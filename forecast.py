@@ -139,7 +139,7 @@ def run_forecast(db_path: Path = config.DATABASE_PATH) -> dict:
 
     predictions = fit_and_forecast(history)
     rows = prepare_forecast_rows(predictions, len(history), pd.Timestamp.now(tz="UTC"))
-    database.create_tables(db_path)          # adds the forecasts table to databases from Phase 3
+    database.create_tables(db_path)          # adds the forecasts table to databases created without it
     saved = database.replace_forecast(rows, db_path)
     return {
         "history_points": len(history),

@@ -11,6 +11,7 @@ that is closed straight away. Ground-truth labels are never read.
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import timedelta
 from pathlib import Path
 
@@ -25,6 +26,8 @@ import forecast
 REGION_NAMES = {region["region_id"]: region["region_name"] for region in config.REGIONS}
 SEVERITY_LABELS = {1: "1 (lowest)", 2: "2", 3: "3", 4: "4 (highest)"}
 TABLES = ["vitals_results", "geo_events", "clusters", "region_risk", "forecasts"]
+PREVIEW_NOTE = ("The hosted preview uses a fixed snapshot of synthetic results. "
+                "Clone the repository to run the complete pipeline.")
 
 # Colours come from a colour-blind-checked palette. Risk levels are always also
 # written as text, so colour is never the only way to read them.
@@ -130,13 +133,31 @@ def latency_summary(frame: pd.DataFrame) -> dict | None:
     }
 
 
-def load_phase2_results(path: Path = config.PHASE2_RESULTS_PATH) -> dict | None:
+def load_evaluation_results(path: Path) -> dict | None:
     """The held-out evaluation saved by train_models.py (read-only), or None if it is missing."""
     try:
         with open(path, encoding="utf-8") as file:
             return json.load(file)
     except (FileNotFoundError, json.JSONDecodeError):
         return None
+
+
+def evaluation_table(results: dict) -> pd.DataFrame:
+    """One row per detector with percentages for display (the saved values are not changed)."""
+    rows = []
+    for detector, key, items in (("Isolation Forest (patient vital signs)", "isolation_forest", "test_rows"),
+                                 ("DBSCAN (outbreak events)", "dbscan", "test_events")):
+        result = results[key]
+        rows.append({
+            "Detector": detector, "Test items": int(result[items]),
+            "Precision": percent(result["precision"]), "Recall": percent(result["recall"]),
+            "F1": percent(result["f1"]),
+            # results files from older versions of train_models.py do not have this value
+            "False-positive rate": percent(result["false_positive_rate"]) if "false_positive_rate" in result else "—",
+            "TP": int(result["true_positives"]), "FP": int(result["false_positives"]),
+            "FN": int(result["false_negatives"]), "TN": int(result["true_negatives"]),
+        })
+    return pd.DataFrame(rows)
 
 
 def filter_vitals(vitals: pd.DataFrame, start, end, regions: list[str], flagged_only: bool) -> pd.DataFrame:
@@ -270,7 +291,7 @@ def show_missing_database(status: str) -> None:
     )
 
 
-def show_about_metrics() -> None:
+def show_about_metrics(preview: bool) -> None:
     with st.expander("About the metrics", expanded=False):
         st.markdown(
             "- **Anomaly score** – the Isolation Forest score of a patient reading; higher is more unusual, "
@@ -291,9 +312,18 @@ def show_about_metrics() -> None:
             "held-out synthetic test data. They depend on how the data was generated and do not show clinical "
             "performance."
         )
+        if preview:
+            st.caption(PREVIEW_NOTE)
 
 
-def render() -> None:
+def render(db_path: Path | None = None, results_path: Path | None = None, preview: bool = False) -> None:
+    """Draw the dashboard. Without arguments it reads the local project database and results.
+
+    preview=True is used by the hosted preview (deployment/app.py): it reads a bundled
+    snapshot and shows short messages instead of local pipeline commands.
+    """
+    db_path = config.DATABASE_PATH if db_path is None else db_path
+    results_path = config.EVALUATION_RESULTS_PATH if results_path is None else results_path
     st.set_page_config(page_title="Healthcare Anomaly and Outbreak Detection", layout="wide")
     st.title("Healthcare Anomaly and Outbreak Detection")
     st.caption("Synthetic healthcare monitoring dashboard")
@@ -302,12 +332,19 @@ def render() -> None:
         st.header("Controls")
         st.button("Refresh data", help="Read the latest results from the database again")
 
-    status = database_status(config.DATABASE_PATH)
+    try:
+        status = database_status(db_path)
+        data = load_data(db_path) if status == "ok" else None
+    except (sqlite3.Error, pd.errors.DatabaseError, ValueError) as error:
+        st.error(f"The results database could not be read ({type(error).__name__}).")
+        st.stop()
     if status != "ok":
-        show_missing_database(status)
+        if preview:
+            st.error("The bundled demo snapshot is missing or incomplete.")
+        else:
+            show_missing_database(status)
         st.stop()
 
-    data = load_data(config.DATABASE_PATH)
     vitals, geo, clusters = data["vitals_results"], data["geo_events"], data["clusters"]
     risk, predicted = data["region_risk"], data["forecasts"]
     if vitals.empty and geo.empty:
@@ -436,24 +473,16 @@ def render() -> None:
     # ---------------- 5. Model evaluation ----------------
     st.subheader("5. Model evaluation")
     st.caption("Held-out synthetic test data")
-    results = load_phase2_results()
-    if results is None:
-        st.info("No evaluation results found. Run `python train_models.py`.")
+    results = load_evaluation_results(results_path)
+    try:
+        table = evaluation_table(results) if results is not None else None
+    except (KeyError, TypeError, ValueError):          # a results file with missing or invalid values
+        table = None
+    if table is None:
+        st.info("Evaluation results are not available." if preview
+                else "No evaluation results found. Run `python train_models.py`.")
     else:
-        rows = []
-        for detector, key, items in (("Isolation Forest (patient vital signs)", "isolation_forest", "test_rows"),
-                                     ("DBSCAN (outbreak events)", "dbscan", "test_events")):
-            result = results[key]
-            rows.append({
-                "Detector": detector, "Test items": int(result[items]),
-                "Precision": percent(result["precision"]), "Recall": percent(result["recall"]),
-                "F1": percent(result["f1"]),
-                # older results files (before Phase 5) do not have this value
-                "False-positive rate": percent(result["false_positive_rate"]) if "false_positive_rate" in result else "—",
-                "TP": int(result["true_positives"]), "FP": int(result["false_positives"]),
-                "FN": int(result["false_negatives"]), "TN": int(result["true_negatives"]),
-            })
-        st.dataframe(pd.DataFrame(rows), hide_index=True)
+        st.dataframe(table, hide_index=True)
 
     # ---------------- 6. Processing performance ----------------
     st.subheader("6. Processing performance")
@@ -477,7 +506,7 @@ def render() -> None:
                 bottom[1].metric("Throughput (events/s)", f"{stats['throughput']:.1f}",
                                  help=f"{stats['events']:,} events stored over {stats['span_seconds']:.0f} s")
 
-    show_about_metrics()
+    show_about_metrics(preview)
     st.divider()
     st.caption("Academic project using simulated data.")
 

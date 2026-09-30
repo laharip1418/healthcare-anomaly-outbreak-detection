@@ -10,7 +10,7 @@ Steps:
      separate label file (labels are used ONLY here, for evaluation).
   4. Run DBSCAN over data/training/geo_test.csv with a sliding window and
      compare with the separate outbreak labels.
-  5. Save the metrics to data/results/phase2_evaluation.json.
+  5. Save the metrics to data/results/evaluation.json.
 
 Run after:  python generate_data.py --mode train
 Usage:      python train_models.py
@@ -157,7 +157,7 @@ def main() -> None:
     }
 
     config.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    output = config.RESULTS_DIR / "phase2_evaluation.json"
+    output = config.EVALUATION_RESULTS_PATH
     with open(output, "w", encoding="utf-8") as file:
         json.dump(report, file, indent=2)
     print(f"\nSaved synthetic-data evaluation to {output.relative_to(config.PROJECT_ROOT).as_posix()}")

@@ -1,0 +1,7 @@
+# Packages for the hosted read-only preview only (deployment/app.py).
+# The full local pipeline uses the requirements.txt in the project folder.
+# Versions are the ones the dashboard was verified with.
+streamlit==1.64.0
+pandas==2.3.3
+plotly==7.1.0
+numpy==2.5.3

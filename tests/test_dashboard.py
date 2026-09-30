@@ -107,7 +107,7 @@ def test_percentages_are_display_only():
 def test_dashboard_runs_without_a_database(monkeypatch, tmp_path):
     # AppTest runs dashboard.py fresh in this process, so it sees the patched config paths.
     monkeypatch.setattr(config, "DATABASE_PATH", tmp_path / "missing.db")
-    monkeypatch.setattr(config, "PHASE2_RESULTS_PATH", tmp_path / "missing.json")
+    monkeypatch.setattr(config, "EVALUATION_RESULTS_PATH", tmp_path / "missing.json")
     app = AppTest.from_file(DASHBOARD, default_timeout=60).run()
     assert not app.exception
     assert not app.warning
@@ -119,7 +119,7 @@ def test_dashboard_runs_without_a_database(monkeypatch, tmp_path):
 def test_dashboard_renders_all_sections_from_stored_results(monkeypatch, tmp_path):
     db_path = tmp_path / "test.db"
     fill_database(db_path)
-    results_path = tmp_path / "phase2.json"
+    results_path = tmp_path / "evaluation.json"
     results_path.write_text(json.dumps({
         "created_at": "2026-09-28T20:14:02+00:00", "seeds": {"train": 42, "test": 43},
         "isolation_forest": {"test_rows": 1200, "precision": 0.7042, "recall": 0.8475, "f1": 0.7692,
@@ -129,7 +129,7 @@ def test_dashboard_renders_all_sections_from_stored_results(monkeypatch, tmp_pat
                    "f1": 0.5, "true_positives": 1, "false_positives": 1, "false_negatives": 1, "true_negatives": 7},
     }), encoding="utf-8")
     monkeypatch.setattr(config, "DATABASE_PATH", db_path)
-    monkeypatch.setattr(config, "PHASE2_RESULTS_PATH", results_path)
+    monkeypatch.setattr(config, "EVALUATION_RESULTS_PATH", results_path)
     app = AppTest.from_file(DASHBOARD, default_timeout=60).run()
 
     assert not app.exception
@@ -164,7 +164,7 @@ def test_dashboard_renders_all_sections_from_stored_results(monkeypatch, tmp_pat
     forest = evaluation.loc["Isolation Forest (patient vital signs)"]
     assert (forest["Precision"], forest["Recall"], forest["F1"]) == ("70.4%", "84.8%", "76.9%")
     assert forest["False-positive rate"] == "1.8%"
-    # a results file written before Phase 5 has no false-positive rate: shown as a dash
+    # a results file from an older train_models.py has no false-positive rate: shown as a dash
     assert evaluation.loc["DBSCAN (outbreak events)", "False-positive rate"] == "—"
     assert (forest["TP"], forest["FP"], forest["FN"], forest["TN"]) == (50, 21, 9, 1120)
     assert any("No active clusters" in info.value for info in app.info)
@@ -179,7 +179,7 @@ def test_refresh_button_loads_new_results(monkeypatch, tmp_path):
     db_path = tmp_path / "test.db"
     fill_database(db_path)
     monkeypatch.setattr(config, "DATABASE_PATH", db_path)
-    monkeypatch.setattr(config, "PHASE2_RESULTS_PATH", tmp_path / "missing.json")
+    monkeypatch.setattr(config, "EVALUATION_RESULTS_PATH", tmp_path / "missing.json")
     app = AppTest.from_file(DASHBOARD, default_timeout=60).run()
     assert {m.label: m.value for m in app.metric}["Processed patient readings"] == "48"
 
