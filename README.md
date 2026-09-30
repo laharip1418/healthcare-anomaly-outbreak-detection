@@ -2,6 +2,10 @@
 
 A student project that streams synthetic healthcare events through PySpark, detects abnormal vital signs and geographic outbreak clusters, forecasts case counts and shows the results on a Streamlit dashboard.
 
+**Live Demo:** [View Live Dashboard](https://healthcare-anomaly-outbreak-detection-7awsftoteivzdwmohsvlgx.streamlit.app/)
+
+The hosted dashboard is read-only and shows pre-generated synthetic demonstration data. Spark and the data-generation pipeline run locally, not on Streamlit Community Cloud.
+
 ## Overview
 
 Hospitals and public-health teams watch two kinds of signals: individual patients whose vital signs suddenly look abnormal, and many similar cases appearing close together, which can be an early sign of an outbreak. This project demonstrates how both can be monitored in (near) real time on one local computer.
@@ -34,7 +38,7 @@ and displays them on an interactive dashboard.
 
 ![Dashboard overview](screenshots/dashboard-overview.png)
 
-A hosted, read-only preview is being prepared. Until then, the dashboard can be run locally (see [Getting Started](#getting-started)):
+[View the live dashboard](https://healthcare-anomaly-outbreak-detection-7awsftoteivzdwmohsvlgx.streamlit.app/), which shows a fixed snapshot of pre-generated synthetic results. To run the dashboard locally (see [Getting Started](#getting-started) for the full pipeline):
 
 ```powershell
 python -m streamlit run dashboard.py
